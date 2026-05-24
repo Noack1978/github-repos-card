@@ -1,0 +1,8 @@
+{
+  "name": "GitHub Repos Card",
+  "description": "Sortierbare und gruppierbare Lovelace-Karte für alle GitHub-Repositories aus der GitHub-Integration.",
+  "render_readme": true,
+  "content_in_root": true,
+  "filename": "github-repos-card.js",
+  "homeassistant": "2023.6.0"
+}
