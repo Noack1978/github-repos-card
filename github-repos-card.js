@@ -120,7 +120,7 @@ class GithubReposCard extends HTMLElement {
       : b.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     const userName   = repoUrl ? (repoUrl.split('/').slice(-2, -1)[0] || '') : '';
 
-    const ver   = verState?.state;
+    const ver   = verState?.attributes?.tag || verState?.state;
     const iss   = issState?.state;
     const forks = forksState?.state;
     const stars = starsState?.state;
@@ -333,16 +333,19 @@ class GithubReposCard extends HTMLElement {
           display: flex;
           flex-wrap: wrap;
           align-items: center;
-          gap: 6px;
+          gap: 4px;
+          row-gap: 4px;
           margin-bottom: 12px;
         }
         .glbl {
-          font-size: 0.75em;
+          font-size: 0.72em;
           color: var(--secondary-text-color);
+          white-space: nowrap;
+          margin-right: 2px;
         }
         .chip {
-          font-size: 0.72em;
-          padding: 3px 11px;
+          font-size: 0.70em;
+          padding: 2px 9px;
           border-radius: 12px;
           border: 1px solid var(--divider-color, #444);
           background: transparent;
@@ -350,6 +353,7 @@ class GithubReposCard extends HTMLElement {
           cursor: pointer;
           transition: background .15s, border-color .15s, color .15s;
           line-height: 1.6;
+          white-space: nowrap;
         }
         .chip:hover { border-color: var(--primary-color, #03a9f4); }
         .chip.on {
@@ -358,6 +362,10 @@ class GithubReposCard extends HTMLElement {
           color: #fff;
         }
         /* Table */
+        .table-wrap {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
         table {
           width: 100%;
           border-collapse: collapse;
@@ -436,10 +444,12 @@ class GithubReposCard extends HTMLElement {
           ${chips}
         </div>
 
-        <table>
-          <thead><tr>${headers}</tr></thead>
-          <tbody>${body}</tbody>
-        </table>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>${headers}</tr></thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
       </div>
     `;
 
