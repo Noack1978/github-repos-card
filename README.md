@@ -23,14 +23,9 @@ Eine sortierbare und gruppierbare Lovelace-Karte für Home Assistant, die alle R
 ## Installation
 
 ### Via HACS (empfohlen)
-## Installation
 
-### Via HACS
+[![In HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Noack1978&repository=github-repos-card&category=frontend)
 
-1. HACS → **Frontend** → ⋮ → **Benutzerdefinierte Repositories**
-2. URL: `https://github.com/Noack1978/github-repos-card`  
-   Kategorie: **Frontend**
-3. **Hinzufügen** → Karte suchen und installieren
 1. Auf den Button klicken – HACS öffnet sich direkt mit diesem Repository
 2. **Herunterladen** klicken
 3. Home Assistant neu laden (F5)
@@ -58,9 +53,11 @@ Karte im Dashboard hinzufügen (YAML-Modus):
 
 ```yaml
 type: custom:github-repos-card
+layout_options:
+  grid_columns: full
 ```
 
-Die Karte erkennt automatisch alle Repositories und stellt sie dar.
+`grid_columns: full` sorgt dafür, dass die Karte die volle Dashboard-Breite nutzt — empfohlen für Sections-Dashboards.
 
 ### Optionale Konfiguration
 
