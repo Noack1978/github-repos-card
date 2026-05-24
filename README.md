@@ -23,7 +23,7 @@ Eine sortierbare und gruppierbare Lovelace-Karte für Home Assistant, die alle R
 ## Installation
 
 ### Via HACS (empfohlen)
-[![Open your Home Assistant instance and show the add app repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FNoack1978%2Fgithub-repos-card)
+[![In HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Noack1978&repository=github-repos-card&category=frontend)
 
 1. Auf den Button klicken – HACS öffnet sich direkt mit diesem Repository
 2. **Herunterladen** klicken
