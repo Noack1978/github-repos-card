@@ -9,7 +9,7 @@
  * @url https://github.com/Noack1978/github-repos-card
  */
 
-const VERSION = '1.0.0';
+const VERSION = '1.4.0';
 
 // Known suffixes for "stars" entity in different HA languages
 const STAR_SUFFIXES = ['_sterne', '_stars', '_étoiles', '_sterren', '_estrelas', '_estrellas'];
@@ -45,6 +45,10 @@ class GithubReposCard extends HTMLElement {
     this._groupCol = null;
     this._starSuffix = null;
     this._suffixMap  = null;
+  }
+
+  static getConfigElement() {
+    return document.createElement('github-repos-card-editor');
   }
 
   static getStubConfig() {
@@ -113,8 +117,31 @@ class GithubReposCard extends HTMLElement {
     const forksState = states[`sensor.${b}${sm.forks}`];
     const starsState = states[starId];
 
+    // Try multiple sensors to extract the repo URL
     const releaseUrl = verState?.attributes?.url || '';
-    const repoUrl    = releaseUrl ? releaseUrl.split('/releases/')[0] : '';
+    let repoUrl = releaseUrl ? releaseUrl.split('/releases/')[0] : '';
+
+    if (!repoUrl) {
+      // Fallback: latest issue URL → https://github.com/user/repo/issues/N
+      const issSuffix = sm.iss === '_probleme' ? '_letztes_problem' : '_latest_issue';
+      const issUrl = states[`sensor.${b}${issSuffix}`]?.attributes?.url || '';
+      if (issUrl) repoUrl = issUrl.split('/issues/')[0];
+    }
+
+    if (!repoUrl) {
+      // Fallback: latest commit URL → https://github.com/user/repo/commit/sha
+      const commitSuffix = sm.iss === '_probleme' ? '_letzter_commit' : '_latest_commit';
+      const commitUrl = states[`sensor.${b}${commitSuffix}`]?.attributes?.url || '';
+      if (commitUrl) repoUrl = commitUrl.split('/commit/')[0];
+    }
+
+    if (!repoUrl) {
+      // Fallback: latest discussion URL → https://github.com/user/repo/discussions/N
+      const discSuffix = sm.iss === '_probleme' ? '_letzte_diskussion' : '_latest_discussion';
+      const discUrl = states[`sensor.${b}${discSuffix}`]?.attributes?.url || '';
+      if (discUrl) repoUrl = discUrl.split('/discussions/')[0];
+    }
+
     const repoName   = repoUrl
       ? repoUrl.split('/').pop().replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
       : b.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -140,7 +167,15 @@ class GithubReposCard extends HTMLElement {
   }
 
   _getRepos() {
-    return this._findStarEntityIds().map(id => this._buildRepo(id));
+    const all = this._findStarEntityIds().map(id => this._buildRepo(id));
+    const filter = this._config.repos;
+    if (!filter || filter.length === 0) return all;
+    return all.filter(r => {
+      const base = r.repoUrl
+        ? r.repoUrl.split('/').pop().toLowerCase().replace(/[-]/g, '_')
+        : r.repoName.toLowerCase().replace(/\s/g, '_');
+      return filter.some(f => base.includes(f) || f.includes(base));
+    });
   }
 
   // ── Sorting ────────────────────────────────────────────────────────────────
@@ -462,6 +497,263 @@ class GithubReposCard extends HTMLElement {
     );
   }
 }
+
+// ── Visual Editor ──────────────────────────────────────────────────────────────
+
+class GithubReposCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this._config = {};
+    this._hass   = null;
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  setConfig(config) {
+    this._config = config || {};
+    this._render();
+  }
+
+  // Detect star suffix and return list of { base, repoName, userName }
+  _detectRepos() {
+    if (!this._hass) return { suffix: null, repos: [] };
+    const states = this._hass.states || {};
+
+    let suffix = this._config.star_suffix || null;
+    if (!suffix) {
+      for (const s of STAR_SUFFIXES) {
+        if (Object.keys(states).some(id => id.startsWith('sensor.') && id.endsWith(s))) {
+          suffix = s;
+          break;
+        }
+      }
+    }
+    if (!suffix) return { suffix: null, repos: [] };
+
+    const sm = SUFFIX_MAP[suffix] || SUFFIX_MAP['_stars'];
+    const repos = Object.keys(states)
+      .filter(id => id.startsWith('sensor.') && id.endsWith(suffix))
+      .map(starId => {
+        const b = starId.replace('sensor.', '').replace(suffix, '');
+        const verState = states[`sensor.${b}${sm.ver}`];
+        const releaseUrl = verState?.attributes?.url || '';
+        let repoUrl = releaseUrl ? releaseUrl.split('/releases/')[0] : '';
+
+        if (!repoUrl) {
+          const issSuffix = sm.iss === '_probleme' ? '_letztes_problem' : '_latest_issue';
+          const issUrl = states[`sensor.${b}${issSuffix}`]?.attributes?.url || '';
+          if (issUrl) repoUrl = issUrl.split('/issues/')[0];
+        }
+        if (!repoUrl) {
+          const commitSuffix = sm.iss === '_probleme' ? '_letzter_commit' : '_latest_commit';
+          const commitUrl = states[`sensor.${b}${commitSuffix}`]?.attributes?.url || '';
+          if (commitUrl) repoUrl = commitUrl.split('/commit/')[0];
+        }
+
+        const repoName = repoUrl
+          ? repoUrl.split('/').pop().replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+          : b.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const userName = repoUrl ? (repoUrl.split('/').slice(-2, -1)[0] || '') : '';
+
+        return { base: b, repoName, userName };
+      })
+      .sort((a, b) => a.repoName.localeCompare(b.repoName));
+
+    return { suffix, repos };
+  }
+
+  _fireConfig(newConfig) {
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: newConfig },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  _render() {
+    const { suffix, repos } = this._detectRepos();
+    const selectedSuffix    = this._config.star_suffix || '';
+    const selectedRepos     = this._config.repos || [];   // [] = show all
+    const showAll           = selectedRepos.length === 0;
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; font-family: var(--paper-font-body1_-_font-family, sans-serif); }
+        .editor { padding: 4px 0; display: flex; flex-direction: column; gap: 20px; }
+
+        /* Info box */
+        .info {
+          display: flex; align-items: flex-start; gap: 10px; padding: 12px;
+          background: var(--secondary-background-color, rgba(255,255,255,.06));
+          border-radius: 8px; font-size: 0.88em;
+          color: var(--secondary-text-color); line-height: 1.5;
+        }
+        .info-icon { font-size: 1.4em; flex-shrink: 0; }
+
+        /* Section */
+        .section-title {
+          font-size: 0.78em; font-weight: 600; text-transform: uppercase;
+          letter-spacing: .06em; color: var(--secondary-text-color);
+          margin-bottom: 8px;
+        }
+
+        /* Repo list */
+        .repo-list { display: flex; flex-direction: column; gap: 2px; }
+        .repo-row {
+          display: flex; align-items: center; gap: 10px;
+          padding: 8px 10px; border-radius: 6px; cursor: pointer;
+          transition: background .12s;
+        }
+        .repo-row:hover { background: var(--secondary-background-color, rgba(255,255,255,.06)); }
+        .repo-row input[type=checkbox] { accent-color: var(--primary-color, #03a9f4); width: 16px; height: 16px; cursor: pointer; }
+        .repo-label { display: flex; flex-direction: column; flex: 1; }
+        .repo-name { font-size: 0.9em; color: var(--primary-text-color); }
+        .repo-user { font-size: 0.75em; color: var(--secondary-text-color); }
+
+        /* All toggle */
+        .all-row {
+          display: flex; align-items: center; gap: 10px;
+          padding: 8px 10px; border-radius: 6px; cursor: pointer;
+          border-bottom: 1px solid var(--divider-color, #333);
+          margin-bottom: 4px;
+        }
+        .all-row:hover { background: var(--secondary-background-color, rgba(255,255,255,.06)); }
+        .all-label { font-size: 0.9em; font-weight: 600; color: var(--primary-text-color); }
+        .all-count { font-size: 0.75em; color: var(--secondary-text-color); }
+
+        /* Suffix field */
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 0.82em; font-weight: 500; color: var(--secondary-text-color); }
+        input[type=text] {
+          background: var(--secondary-background-color, rgba(255,255,255,.06));
+          border: 1px solid var(--divider-color, #444); border-radius: 6px;
+          padding: 9px 12px; color: var(--primary-text-color); font-size: 0.92em;
+          outline: none; transition: border-color .15s; font-family: monospace; width: 100%; box-sizing: border-box;
+        }
+        input[type=text]:focus { border-color: var(--primary-color, #03a9f4); }
+        input[type=text]::placeholder { color: var(--disabled-text-color, #666); }
+        .hint { font-size: 0.76em; color: var(--secondary-text-color); opacity: 0.8; }
+        .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+        .tag {
+          font-size: 0.72em; padding: 2px 8px; border-radius: 10px;
+          background: var(--secondary-background-color, rgba(255,255,255,.08));
+          color: var(--secondary-text-color); font-family: monospace; cursor: pointer;
+          border: 1px solid var(--divider-color, #444); transition: border-color .15s;
+        }
+        .tag:hover { border-color: var(--primary-color, #03a9f4); }
+        .detected {
+          font-size: 0.76em; color: var(--primary-color, #03a9f4);
+          display: flex; align-items: center; gap: 4px;
+        }
+      </style>
+
+      <div class="editor">
+        <div class="info">
+          <span class="info-icon">🐙</span>
+          <span>Zeigt Repositories aus der GitHub-Integration in einer sortierbaren und gruppierbaren Tabelle.
+          Standardmäßig werden alle Repositories angezeigt.</span>
+        </div>
+
+        <div>
+          <div class="section-title">Repositories</div>
+          ${repos.length === 0 ? `
+            <div class="hint">Keine GitHub-Repositories gefunden. GitHub-Integration prüfen.</div>
+          ` : `
+            <div class="repo-list">
+              <div class="all-row" data-action="toggle-all">
+                <input type="checkbox" id="cb-all" ${showAll ? 'checked' : ''} />
+                <span class="all-label">Alle anzeigen</span>
+                <span class="all-count">${repos.length} Repos</span>
+              </div>
+              ${repos.map(r => `
+                <div class="repo-row" data-action="toggle-repo" data-base="${r.base}">
+                  <input type="checkbox" ${showAll || selectedRepos.includes(r.base) ? 'checked' : ''} data-base="${r.base}" />
+                  <div class="repo-label">
+                    <span class="repo-name">${r.repoName}</span>
+                    <span class="repo-user">${r.userName}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        <div class="field">
+          <label>Sterne-Suffix (optional)</label>
+          ${suffix ? `<div class="detected">✓ Automatisch erkannt: <code>${suffix}</code></div>` : ''}
+          <input type="text" placeholder="Automatisch erkannt" value="${selectedSuffix}" id="suffix-input" />
+          <span class="hint">Nur setzen falls die automatische Erkennung fehlschlägt:</span>
+          <div class="tags">
+            ${STAR_SUFFIXES.map(s => `<span class="tag" data-suffix="${s}">${s}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+
+    // "Alle" checkbox
+    const cbAll = this.shadowRoot.querySelector('#cb-all');
+    if (cbAll) {
+      this.shadowRoot.querySelector('[data-action="toggle-all"]').addEventListener('click', e => {
+        if (e.target.tagName === 'INPUT') return;
+        cbAll.click();
+      });
+      cbAll.addEventListener('change', () => {
+        const newConfig = { ...this._config };
+        delete newConfig.repos;
+        this._fireConfig(newConfig);
+      });
+    }
+
+    // Individual repo checkboxes
+    this.shadowRoot.querySelectorAll('[data-action="toggle-repo"]').forEach(row => {
+      const base = row.dataset.base;
+      const cb   = row.querySelector('input[type=checkbox]');
+      row.addEventListener('click', e => { if (e.target.tagName === 'INPUT') return; cb.click(); });
+      cb.addEventListener('change', () => {
+        let current = [...(this._config.repos || repos.map(r => r.base))];
+        if (cb.checked) {
+          if (!current.includes(base)) current.push(base);
+        } else {
+          current = current.filter(b => b !== base);
+        }
+        // If all selected → same as "Alle"
+        const newConfig = { ...this._config };
+        if (current.length === repos.length) {
+          delete newConfig.repos;
+        } else {
+          newConfig.repos = current;
+        }
+        this._fireConfig(newConfig);
+      });
+    });
+
+    // Suffix input
+    const suffixInput = this.shadowRoot.querySelector('#suffix-input');
+    if (suffixInput) {
+      suffixInput.addEventListener('change', () => {
+        const val = suffixInput.value.trim();
+        const newConfig = { ...this._config };
+        if (val) newConfig.star_suffix = val; else delete newConfig.star_suffix;
+        this._fireConfig(newConfig);
+      });
+    }
+
+    // Suffix tags
+    this.shadowRoot.querySelectorAll('.tag').forEach(tag => {
+      tag.addEventListener('click', () => {
+        suffixInput.value = tag.dataset.suffix;
+        suffixInput.dispatchEvent(new Event('change'));
+      });
+    });
+  }
+}
+
+customElements.define('github-repos-card-editor', GithubReposCardEditor);
+
 
 customElements.define('github-repos-card', GithubReposCard);
 
