@@ -9,7 +9,7 @@
  * @url https://github.com/Noack1978/github-repos-card
  */
 
-const VERSION = '1.4.0';
+const VERSION = '1.1.0';
 
 // Known suffixes for "stars" entity in different HA languages
 const STAR_SUFFIXES = ['_sterne', '_stars', '_étoiles', '_sterren', '_estrelas', '_estrellas'];
