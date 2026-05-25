@@ -9,8 +9,10 @@ Eine sortierbare und gruppierbare Lovelace-Karte für Home Assistant, die alle R
 ## Features
 
 - 🔍 **Automatische Erkennung** aller konfigurierten GitHub-Repositories
+- 🖱️ **Visueller Editor** mit Repo-Auswahl, Layout- und Sichtbarkeits-Tabs
 - 🔼 **Sortierung** per Klick auf Spaltenheader (auf-/absteigend)
 - 📂 **Gruppierung** nach beliebiger Spalte per Chip-Auswahl
+- ☑️ **Repo-Filter** – nur bestimmte Repositories anzeigen
 - 🔗 **Klickbare Links** direkt zum GitHub-Repository
 - 🌍 **Mehrsprachig** – unterstützt deutsche und englische HA-Entitäten
 - ✨ **Neue Repos erscheinen automatisch** ohne Kartenanpassung
@@ -24,6 +26,8 @@ Eine sortierbare und gruppierbare Lovelace-Karte für Home Assistant, die alle R
 
 ### Via HACS (empfohlen)
 
+[![In HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Noack1978&repository=github-repos-card&category=frontend)
+
 1. Auf den Button klicken – HACS öffnet sich direkt mit diesem Repository
 2. **Herunterladen** klicken
 3. Home Assistant neu laden (F5)
@@ -33,7 +37,7 @@ Oder manuell als benutzerdefiniertes Repository:
 1. HACS öffnen → **Frontend**
 2. Oben rechts: **⋮ → Benutzerdefinierte Repositories**
 3. URL eingeben: `https://github.com/Noack1978/github-repos-card`  
-   Kategorie: **Lovelace**
+   Kategorie: **Frontend**
 4. **Hinzufügen** → Karte in HACS suchen und installieren
 
 ### Manuell
@@ -47,7 +51,7 @@ Oder manuell als benutzerdefiniertes Repository:
 
 ## Verwendung
 
-Karte im Dashboard hinzufügen (YAML-Modus):
+Karte im Dashboard hinzufügen — am einfachsten über den **visuellen Editor** oder per YAML:
 
 ```yaml
 type: custom:github-repos-card
@@ -55,18 +59,36 @@ layout_options:
   grid_columns: full
 ```
 
-`grid_columns: full` sorgt dafür, dass die Karte die volle Dashboard-Breite nutzt — empfohlen für Sections-Dashboards.
+`grid_columns: full` sorgt dafür, dass die Karte die volle Dashboard-Breite nutzt — empfohlen für Sections-Dashboards. Im visuellen Editor unter dem **Layout**-Tab einstellbar.
 
-### Optionale Konfiguration
+## Visueller Editor
+
+Der eingebaute Editor bietet drei Tabs:
+
+- **Karte** – Repo-Auswahl per Checkbox und optionaler Sterne-Suffix
+- **Layout** – Kartenbreite und -höhe (z.B. `grid_columns: full`)
+- **Sichtbarkeit** – Bedingungen wann die Karte angezeigt wird
+
+### Repo-Auswahl
+
+Im **Karte**-Tab werden alle erkannten GitHub-Repositories als Checkboxen aufgelistet. Einzelne Repos lassen sich damit ein- oder ausblenden. „Alle anzeigen" ist der Standard — neue Repos erscheinen dann automatisch.
+
+## Optionale YAML-Konfiguration
 
 ```yaml
 type: custom:github-repos-card
-star_suffix: _sterne   # Nur nötig, wenn automatische Erkennung fehlschlägt
+star_suffix: _sterne        # Nur nötig, wenn automatische Erkennung fehlschlägt
+repos:                      # Nur bestimmte Repos anzeigen (leer = alle)
+  - ha_washdata
+  - ha_dhl_tracking
+layout_options:
+  grid_columns: full
 ```
 
 | Option | Standard | Beschreibung |
 |--------|----------|--------------|
 | `star_suffix` | auto | Suffix der Sterne-Entität (z.B. `_sterne`, `_stars`) |
+| `repos` | alle | Liste der anzuzeigenden Repo-Basis-IDs |
 
 ## Spalten
 
@@ -74,14 +96,14 @@ star_suffix: _sterne   # Nur nötig, wenn automatische Erkennung fehlschlägt
 |--------|-------------|
 | Repository | Name des Repositories (klickbar) |
 | Benutzer | GitHub-Benutzername des Inhabers |
-| Version | Neuestes Release |
+| Version | Neuestes Release-Tag |
 | Probleme | Anzahl offener Issues |
 | ⭐ | Sterne |
 | 🍴 | Forks |
 
 ## Sortierung
 
-Klick auf einen **Spalten-Header** sortiert nach dieser Spalte (↑ aufsteigend). Ein weiterer Klick wechselt zu absteigend (↓). Ein erneuter Klick auf einen anderen Header wechselt die Spalte.
+Klick auf einen **Spalten-Header** sortiert nach dieser Spalte (↑ aufsteigend). Ein weiterer Klick wechselt zu absteigend (↓).
 
 ## Gruppierung
 
@@ -96,7 +118,7 @@ Ein aktiver Chip ist farbig markiert. Erneutes Klicken hebt die Gruppierung auf.
 
 ## Mehrsprachigkeit
 
-Die Karte erkennt automatisch, welche Sprache deine HA-Instanz verwendet, anhand der Entitäts-Suffixe:
+Die Karte erkennt automatisch, welche Sprache deine HA-Instanz verwendet:
 
 | Sprache | Sterne-Suffix |
 |---------|--------------|
